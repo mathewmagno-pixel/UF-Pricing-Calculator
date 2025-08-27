@@ -1,0 +1,833 @@
+<!--
+  Single-file version of the JAPA × University of Florida pricing calculator.
+  This self-contained HTML embeds all CSS, JavaScript and image assets
+  directly into the markup.  Use this file if you need a standalone
+  calculator without external dependencies.  All behaviour and styling
+  remains identical to the multi-file version hosted in the uf-calculator
+  directory.  Images have been resized and base64 encoded to keep the
+  file size reasonable while preserving clarity.  Should you need to
+  update any of the logic or styles, refer to the original project
+  structure for guidance.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JAPA × University of Florida Pricing Calculator</title>
+  <!--
+    Inline stylesheet copied from assets/css/styles.css.  CSS variables
+    provide easy theming (Japa orange and UF blue) and the layout
+    responds gracefully across screen sizes.  All external references
+    have been removed so this file can run offline.
+  -->
+  <style>
+/* Reset and variables */
+:root {
+  --japa: #cd5e14;      /* Japa orange accent */
+  --kaiser: #0021a5;    /* UF blue accent (reusing the variable name) */
+  --ink: #101828;       /* Primary text colour */
+  --muted: #6b7280;     /* Secondary text colour */
+  --bg: #f6f9fc;        /* Page background colour */
+  --card: #ffffff;      /* Card background colour */
+  --radius: 14px;       /* Border radius for cards */
+  --shadow: 0 8px 24px rgba(0,0,0,.06); /* Soft shadow for cards */
+  --gap: 1rem;          /* Base gap for grids */
+}
+
+html, body { margin: 0; }
+body {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+/* Utility wrapper for centring content */
+.wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+
+/* Masthead: simplified two-stop gradient blending Japa orange into UF blue,
+   with a light radial overlay.  Logos sit on top of the gradient. */
+.mast {
+  background:
+    radial-gradient(800px 200px at 0% 0%, rgba(255,255,255,.4), transparent 70%),
+    linear-gradient(90deg, var(--japa) 0%, var(--kaiser) 100%);
+  color: #fff;
+  box-shadow: inset 0 -1px 0 rgba(255,255,255,.3);
+}
+.mast-inner {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: .75rem;
+  padding: .9rem 1rem;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  font-weight: 600;
+}
+.brand-img {
+  height: 48px;
+  width: auto;
+}
+/* Enlarge the UF logo for balance */
+.mast .brand:last-of-type .brand-img {
+  height: 120px;
+}
+.divider { display: none; }
+.mast-text { padding: .5rem 1rem 1.25rem; }
+.mast-title {
+  margin: 0;
+  font-size: 1.6rem;
+  letter-spacing: .2px;
+}
+.lead {
+  margin: .25rem 0 0;
+  color: #f3f5fa;
+  font-size: 1rem;
+}
+.dark-toggle button {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.35rem;
+  padding: .25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dark-toggle button:focus {
+  outline: 2px solid var(--kaiser);
+  outline-offset: 2px;
+}
+body.dark .dark-toggle button { color: #ffd700; }
+
+/* Controls layout */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 2rem 0 1.5rem;
+}
+.controls label {
+  display: flex;
+  flex-direction: column;
+  font-size: .95rem;
+  color: var(--muted);
+}
+.input {
+  width: 10ch;
+  padding: .55rem .6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #fff;
+  font-size: 1rem;
+  color: var(--ink);
+}
+select.input { width: 14ch; }
+
+/* Tab navigation */
+.tabs {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+.tab {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  padding: .5rem 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  color: var(--muted);
+}
+.tab.active {
+  color: var(--ink);
+  border-bottom-color: var(--japa);
+  font-weight: 600;
+}
+
+/* Cards */
+.grid {
+  display: grid;
+  gap: var(--gap);
+  grid-template-columns: 1fr;
+}
+@media (min-width: 768px) {
+  .grid { grid-template-columns: 1fr 1fr; }
+}
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+.card h2 {
+  margin: 0 0 .5rem;
+  font-size: 1.25rem;
+  color: var(--ink);
+}
+.desc {
+  font-size: .9rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.badge {
+  display: inline-block;
+  background: #ffe6d5;
+  color: var(--japa);
+  padding: .2rem .5rem;
+  border-radius: .25rem;
+  font-size: .75rem;
+  font-weight: 600;
+}
+
+/* Pricing table */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.table th,
+.table td {
+  padding: .5rem;
+  font-size: .9rem;
+}
+.table th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 500;
+}
+.table .qty,
+.table .money {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.table input[type="number"] {
+  width: 6ch;
+  padding: .3rem .4rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: .9rem;
+}
+.table input[type="number"]:focus {
+  outline: 2px solid var(--kaiser);
+  outline-offset: 2px;
+}
+.discount-price {
+  display: block;
+  font-size: .8rem;
+  color: var(--japa);
+  margin-top: .15rem;
+}
+body.dark .discount-price { color: #ffd700; }
+
+/* Savings section */
+.savings {
+  margin-top: 1rem;
+  padding: .75rem;
+  border: 1px dashed var(--muted);
+  border-radius: .5rem;
+  background: #fffefa;
+  font-size: .9rem;
+  color: var(--ink);
+}
+.savings.has-savings {
+  border-color: var(--japa);
+  background: #fff5ef;
+}
+.savings-header {
+  font-weight: 600;
+  margin-bottom: .5rem;
+  color: var(--japa);
+}
+.savings-line {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: .25rem;
+}
+.savings-line .amount {
+  font-weight: 600;
+}
+
+/* Contract total */
+.contract-total {
+  margin-top: 1rem;
+  padding: .75rem;
+  border: 1px dashed var(--muted);
+  border-radius: .5rem;
+  background: #f8f9fb;
+  font-size: .95rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 500;
+}
+.contract-total strong {
+  font-weight: 700;
+}
+
+/* Discount page structure */
+.discount-structure h3 {
+  margin-top: 1rem;
+  font-size: 1.1rem;
+  color: var(--ink);
+}
+.discount-structure ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+  margin-top: .25rem;
+}
+.discount-structure li {
+  margin-bottom: .25rem;
+}
+  </style>
+</head>
+<body>
+  <header class="mast" role="banner">
+    <div class="mast-inner wrap">
+      <div class="brand">
+        <!-- Japa logo (resized and base64 encoded) -->
+        <img src="data:image/png;base64,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" alt="Japa Smart Parking logo" class="brand-img" />
+        <span class="brand-name">Japa Smart Parking</span>
+      </div>
+      <!-- Spacer removed to unify header -->
+      <div class="divider" aria-hidden="true"></div>
+      <div class="brand">
+        <!-- University of Florida logo (resized and base64 encoded) -->
+        <img src="data:image/png;base64,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" alt="University of Florida logo" class="brand-img" />
+      </div>
+      <div class="dark-toggle">
+        <button id="dark-toggle" aria-label="Toggle dark mode" aria-pressed="false">🌙</button>
+      </div>
+    </div>
+    <div class="wrap mast-text">
+      <h1 class="mast-title">JAPA × University of Florida<br>Smart Parking Pricing Calculator</h1>
+      <p class="lead">Adjust sensor counts, lane counts and contract length to see yearly totals. Edit unit prices directly in each row to refine your quote.</p>
+    </div>
+  </header>
+  <main class="wrap">
+    <nav class="tabs" aria-label="View selection">
+      <button id="tab-pricing" class="tab active" type="button" aria-controls="pricing-section" aria-selected="true">Pricing</button>
+      <button id="tab-discounts" class="tab" type="button" aria-controls="discounts-section" aria-selected="false">Discounts</button>
+    </nav>
+    <div id="pricing-section">
+      <section class="controls" aria-label="Inputs">
+        <label for="contract-years">Contract years
+          <select id="contract-years" class="input">
+            <option value="3">3 Years (0%)</option>
+            <option value="4">4 Years (2%)</option>
+            <option value="5">5 Years (4%)</option>
+            <option value="6">6 Years (6%)</option>
+            <option value="7">7 Years (8%)</option>
+            <option value="8">8+ Years (10%)</option>
+          </select>
+        </label>
+        <label for="sensors">Sensors
+          <input id="sensors" class="input" type="number" min="0" step="1" value="1390" />
+        </label>
+        <label for="lanes">Lanes
+          <input id="lanes" class="input" type="number" min="0" step="1" value="0" />
+        </label>
+        <label for="bases">Base stations
+          <input id="bases" class="input" type="number" min="0" step="1" value="0" />
+        </label>
+        <label for="warranty-years">Extra warranty years
+          <input id="warranty-years" class="input" type="number" min="0" step="1" value="0" />
+        </label>
+      </section>
+      <!-- Pricing grid: purchase and lease cards side-by-side -->
+      <section class="grid" aria-label="Purchase vs Lease">
+        <!-- Purchase Card -->
+        <article class="card" aria-labelledby="purchase-title">
+          <h2 id="purchase-title">Purchase — Own Your Equipment</h2>
+          <p class="desc">Buy the hardware up front and pay ongoing software and cellular fees. Lower annual costs over time and you own the equipment, making it a solid capex option. Includes mobile app &amp; JAPA Dashboard and 24/7 customer service. Installation is not included and is charged per sensor.</p>
+          <span class="badge">CAPEX</span>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Item</th><th class="money">Unit Price</th><th class="qty">Qty</th><th class="money">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Smart Parking Sensor "Per‑Space"</td>
+                <td><input id="p-cost-activation" type="number" min="0" value="166" />
+                  <span id="p-discount-activation" class="discount-price"></span>
+                </td>
+                <td class="qty" data-qty="sensors">0</td>
+                <td class="money" id="p-sum-activation">$0</td>
+              </tr>
+              <tr>
+                <td>Annual service per sensor</td>
+                <td><input id="p-cost-service" type="number" min="0" value="72" />
+                  <span id="p-discount-service" class="discount-price"></span>
+                </td>
+                <td class="qty" data-qty="sensors">0</td>
+                <td class="money" id="p-sum-service">$0</td>
+              </tr>
+              <tr>
+                <td>Installation per sensor</td>
+                <td><input id="p-cost-install" type="number" min="0" value="40" />
+                </td>
+                <td class="qty" data-qty="sensors">0</td>
+                <td class="money" id="p-sum-install">$0</td>
+              </tr>
+              <tr>
+                <td>Smart Parking Sensor "Lane Counter"</td>
+                <td><input id="p-cost-laneCounter" type="number" min="0" value="400" />
+                </td>
+                <td class="qty" data-qty="lanes">0</td>
+                <td class="money" id="p-sum-laneCounter">$0</td>
+              </tr>
+              <tr>
+                <td>Annual service per lane</td>
+                <td><input id="p-cost-lane" type="number" min="0" value="2800" />
+                  <span id="p-discount-lane" class="discount-price"></span>
+                </td>
+                <td class="qty" data-qty="lanes">0</td>
+                <td class="money" id="p-sum-lane">$0</td>
+              </tr>
+              <tr>
+                <td>Base stations (per station)</td>
+                <td><input id="p-cost-base" type="number" min="0" value="3600" /></td>
+                <td class="qty" data-qty="bases">0</td>
+                <td class="money" id="p-sum-base">$0</td>
+              </tr>
+              <tr>
+                <td>Warranty per sensor (extra)</td>
+                <td><input id="p-cost-warranty" type="number" min="0" value="0" /></td>
+                <td class="qty" data-qty="sensors">0</td>
+                <td class="money" id="p-sum-warranty">$0</td>
+              </tr>
+            </tbody>
+          </table>
+          <!-- Year breakdown and waterfall visuals will be injected via JS -->
+          <div class="years" id="p-year-breakdown" aria-live="polite"></div>
+          <div class="waterfall" id="p-waterfall"></div>
+          <div class="contract-total"><span>Total contract value</span><strong id="p-contract-total">$0</strong></div>
+          <div class="savings" id="p-savings" aria-live="polite"></div>
+        </article>
+
+        <!-- Lease Card -->
+        <article class="card" aria-labelledby="lease-title">
+          <h2 id="lease-title">Lease — All‑Inclusive</h2>
+          <p class="desc">Pay a flat annual subscription. JAPA owns, installs, maintains and replaces all equipment. One all‑inclusive price covers hardware, installation, warranty for the full contract, operations &amp; maintenance, the mobile app &amp; JAPA Dashboard, 24/7 customer service and on‑site help. Best for teams seeking peace of mind with zero risk.</p>
+          <span class="badge">OPEX</span>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Item</th><th class="money">Unit Price</th><th class="qty">Qty</th><th class="money">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Annual per sensor</td>
+                <td><input id="l-cost-service" type="number" min="0" value="140" />
+                  <span id="l-discount-service" class="discount-price"></span>
+                </td>
+                <td class="qty" data-qty="sensors">0</td>
+                <td class="money" id="l-sum-service">$0</td>
+              </tr>
+              <tr>
+                <td>Annual service per lane</td>
+                <td><input id="l-cost-lane" type="number" min="0" value="4500" />
+                  <span id="l-discount-lane" class="discount-price"></span>
+                </td>
+                <td class="qty" data-qty="lanes">0</td>
+                <td class="money" id="l-sum-lane">$0</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="years" id="l-year-breakdown" aria-live="polite"></div>
+          <div class="waterfall" id="l-waterfall"></div>
+          <div class="contract-total"><span>Total contract value</span><strong id="l-contract-total">$0</strong></div>
+          <div class="savings" id="l-savings" aria-live="polite"></div>
+        </article>
+      </section>
+    </div>
+    <!-- Detailed discount information.  Lists the tiers and percentages so users
+         understand how to unlock better pricing. -->
+    <div id="discounts-section" style="display:none;">
+      <h2>Discount Structure</h2>
+      <div class="discount-structure">
+        <h3>Multi‑Year Commitment Discounts (applies to SaaS fees)</h3>
+        <ul>
+          <li>3 years — 0% off
+          </li>
+          <li>4 years — 2% off
+          </li>
+          <li>5 years — 4% off
+          </li>
+          <li>6 years — 6% off
+          </li>
+          <li>7 years — 8% off
+          </li>
+          <li>8+ years — 10% off
+          </li>
+        </ul>
+        <h3>Purchase Sensor Pricing (per‑space)</h3>
+        <ul>
+          <li>1–499 sensors — $166 (0% discount)</li>
+          <li>500–999 sensors — $163 (2% discount)</li>
+          <li>1,000–1,499 sensors — $160 (4% discount)</li>
+          <li>1,500–1,999 sensors — $150 (6% discount)</li>
+          <li>2,000+ sensors — $152.75 (8% discount)</li>
+        </ul>
+        <h3>Lease Sensor Pricing</h3>
+        <ul>
+          <li>1–499 sensors — $250 (0% discount)</li>
+          <li>500–999 sensors — $245 (5% discount)</li>
+          <li>1,000–1,499 sensors — $225 (10% discount)</li>
+          <li>1,500–2,499 sensors — $200 (20% discount)</li>
+          <li>2,500+ sensors — $175 (30% discount)</li>
+        </ul>
+        <h3>Lease Lane Counter Pricing</h3>
+        <ul>
+          <li>1–9 lanes — $4,500 (0% discount)</li>
+          <li>10–19 lanes — $4,275 (5% discount)</li>
+          <li>20–29 lanes — $4,050 (10% discount)</li>
+          <li>30–39 lanes — $3,825 (15% discount)</li>
+          <li>40+ lanes — $3,600 (20% discount)</li>
+        </ul>
+        <p>Discounts stack automatically. Increase sensors, lanes or contract length to unlock deeper savings.</p>
+      </div>
+    </div>
+  </main>
+  <footer class="wrap" style="border-top:1px solid #eee;padding-top:1rem;font-size:.85rem;color:var(--muted);">
+    <p>Japa, Inc. • 1002 Central St., West Sacramento CA 95691 • contact@japa.one • 877‑PRK‑JAPA • <a href="https://parkjapa.com" target="_blank" style="color:var(--japa);text-decoration:none;">parkjapa.com</a></p>
+  </footer>
+
+  <!-- Inline script copied from assets/js/main.js.  All DOM queries and
+       calculations remain unchanged, with minor adjustments for the
+       single-file context (e.g. no external imports).  Comments
+       describe key functions and where discounts are applied. -->
+  <script>
+// Helper for currency formatting
+function formatCurrency(value) {
+  return value.toLocaleString(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  });
+}
+
+// Multi‑year discount tiers for SaaS fees
+function getMultiYearDiscount(years) {
+  if (years >= 8) return 0.10;
+  if (years >= 7) return 0.08;
+  if (years >= 6) return 0.06;
+  if (years >= 5) return 0.04;
+  if (years >= 4) return 0.02;
+  return 0.00;
+}
+
+// Bulk pricing tiers for purchase sensors
+function getBulkActivationPrice(sensors) {
+  if (sensors >= 2000) return 152.75;
+  if (sensors >= 1500) return 150.00;
+  if (sensors >= 1000) return 160.00;
+  if (sensors >= 500)  return 163.00;
+  return 166.00;
+}
+
+// Bulk discount for purchase hardware (as a percentage)
+function getPurchaseHardwareDiscount(sensors) {
+  if (sensors >= 2000) return 0.08;
+  if (sensors >= 1500) return 0.06;
+  if (sensors >= 1000) return 0.04;
+  if (sensors >= 500)  return 0.02;
+  return 0.00;
+}
+
+// Lease sensor bulk discount percentage
+function getLeaseSensorDiscount(sensors) {
+  if (sensors >= 2500) return 0.30;
+  if (sensors >= 1500) return 0.20;
+  if (sensors >= 1000) return 0.10;
+  if (sensors >= 500)  return 0.05;
+  return 0.00;
+}
+
+// Lease lane counter bulk discount percentage
+function getLeaseLaneDiscount(lanes) {
+  if (lanes >= 40) return 0.20;
+  if (lanes >= 30) return 0.15;
+  if (lanes >= 20) return 0.10;
+  if (lanes >= 10) return 0.05;
+  return 0.00;
+}
+
+// Compute waterfall segments for Purchase Year 1
+function computeWaterfall(sensors, lanes, bases, warrantyYears, costs, baseCost) {
+  return [
+    { label: 'Activation', value: costs.pActivation * sensors },
+    { label: 'Installation', value: costs.pInstall * sensors },
+    { label: 'Annual', value: costs.pService * sensors },
+    { label: 'Lane sensors', value: costs.pLaneCounter * lanes },
+    { label: 'Lane service', value: costs.pLane * lanes },
+    { label: 'Bases', value: baseCost * bases },
+    { label: 'Warranty', value: costs.pWarranty * sensors * warrantyYears },
+  ];
+}
+
+// Render a simple waterfall bar showing Year 1 cost breakdown
+function renderWaterfall(container, segments, total) {
+  container.innerHTML = '';
+  if (total <= 0) return;
+  const bar = document.createElement('div');
+  bar.style.display = 'flex';
+  bar.style.height = '20px';
+  bar.style.marginTop = '.75rem';
+  segments.forEach(seg => {
+    const part = document.createElement('div');
+    part.style.flex = seg.value / total;
+    part.style.background = '#'+Math.floor(Math.random()*16777215).toString(16); // random colours
+    part.title = `${seg.label}: ${formatCurrency(seg.value)}`;
+    bar.appendChild(part);
+  });
+  container.appendChild(bar);
+}
+
+// Render yearly totals (Year 1, Year 2, etc.)
+function renderYearBreakdown(container, totals) {
+  container.innerHTML = '';
+  totals.forEach((total, idx) => {
+    const row = document.createElement('div');
+    row.className = 'year-line';
+    row.innerHTML = `<span>Year ${idx + 1}</span><strong>${formatCurrency(total)}</strong>`;
+    container.appendChild(row);
+  });
+}
+
+// Render savings lines with highlight
+function renderSavings(container, savings) {
+  container.innerHTML = '';
+  container.classList.remove('has-savings');
+  if (!savings || savings.length === 0) return;
+  container.classList.add('has-savings');
+  const header = document.createElement('div');
+  header.className = 'savings-header';
+  header.textContent = '🎉 Discounts & Savings';
+  container.appendChild(header);
+  savings.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'savings-line';
+    const label = document.createElement('span');
+    label.textContent = item.label;
+    const amount = document.createElement('span');
+    amount.className = 'amount';
+    amount.textContent = formatCurrency(item.amount);
+    row.appendChild(label);
+    row.appendChild(amount);
+    container.appendChild(row);
+  });
+}
+
+// Compute purchase yearly totals
+function computePurchaseTotals(years, sensors, lanes, bases, warrantyYears, costs, baseCost, discount) {
+  const totals = [];
+  const serviceMultiplier = 1 - discount;
+  for (let i = 0; i < years; i++) {
+    const isFirst = i === 0;
+    const service = costs.pService * sensors * serviceMultiplier;
+    const laneService = costs.pLane * lanes * serviceMultiplier;
+    const yearTotal =
+      (isFirst ? costs.pActivation * sensors : 0) +
+      (isFirst ? costs.pInstall * sensors : 0) +
+      (isFirst ? costs.pLaneCounter * lanes : 0) +
+      (isFirst ? baseCost * bases : 0) +
+      service + laneService +
+      (isFirst ? costs.pWarranty * sensors * warrantyYears : 0);
+    totals.push(yearTotal);
+  }
+  return totals;
+}
+
+// Compute lease yearly totals (no one-time hardware cost)
+function computeLeaseTotals(years, sensors, lanes, costs, discount) {
+  const totals = [];
+  const serviceMultiplier = 1 - discount;
+  for (let i = 0; i < years; i++) {
+    totals.push(
+      costs.lService * sensors * serviceMultiplier +
+      costs.lLane * lanes * serviceMultiplier
+    );
+  }
+  return totals;
+}
+
+// Update row subtotals
+function updateRowSums(sensors, lanes, bases, warrantyYears, costInputs, sumOutputs, baseCost, discount) {
+  const serviceMultiplier = 1 - discount;
+  // Purchase rows
+  sumOutputs.pActivation.textContent = formatCurrency(costInputs.pActivation * sensors);
+  sumOutputs.pInstall.textContent    = formatCurrency(costInputs.pInstall * sensors);
+  sumOutputs.pLaneCounter.textContent = formatCurrency(costInputs.pLaneCounter * lanes);
+  sumOutputs.pService.textContent    = formatCurrency(costInputs.pService * sensors * serviceMultiplier);
+  sumOutputs.pLane.textContent       = formatCurrency(costInputs.pLane * lanes * serviceMultiplier);
+  sumOutputs.pBase.textContent       = formatCurrency(baseCost * bases);
+  sumOutputs.pWarranty.textContent   = formatCurrency(costInputs.pWarranty * sensors * warrantyYears);
+  // Lease rows
+  sumOutputs.lService.textContent    = formatCurrency(costInputs.lService * sensors * serviceMultiplier);
+  sumOutputs.lLane.textContent       = formatCurrency(costInputs.lLane * lanes * serviceMultiplier);
+}
+
+// Compute and display discount description next to unit prices
+function updateDiscountDisplays(sensors, lanes, years, costInputs) {
+  const multiYear = getMultiYearDiscount(years);
+  const hardwareDisc = getPurchaseHardwareDiscount(sensors);
+  const leaseSensorDisc = getLeaseSensorDiscount(sensors);
+  const leaseLaneDisc = getLeaseLaneDiscount(lanes);
+  // Purchase activation
+  const pActSpan = document.getElementById('p-discount-activation');
+  const newAct = getBulkActivationPrice(sensors);
+  const hardwarePct = hardwareDisc > 0 ? `(${(hardwareDisc*100).toFixed(0)}% bulk sensor discount)` : '';
+  pActSpan.textContent = newAct !== parseFloat(costInputs.pActivation) ? `→ ${formatCurrency(newAct)} ${hardwarePct}` : '';
+  // Purchase service
+  const pServSpan = document.getElementById('p-discount-service');
+  const discServ = costInputs.pService * (1 - multiYear);
+  const servPct = multiYear > 0 ? `(${(multiYear*100).toFixed(0)}% multi‑year discount)` : '';
+  pServSpan.textContent = multiYear > 0 ? `→ ${formatCurrency(discServ)} ${servPct}` : '';
+  // Purchase lane
+  const pLaneSpan = document.getElementById('p-discount-lane');
+  const discLane = costInputs.pLane * (1 - multiYear);
+  pLaneSpan.textContent = multiYear > 0 ? `→ ${formatCurrency(discLane)} ${servPct}` : '';
+  // Lease service
+  const lServSpan = document.getElementById('l-discount-service');
+  const lBase = costInputs.lService;
+  const lDiscBase = lBase * (1 - multiYear);
+  const lDescParts = [];
+  if (multiYear > 0) lDescParts.push(`${(multiYear*100).toFixed(0)}% multi‑year`);
+  if (leaseSensorDisc > 0) lDescParts.push(`${(leaseSensorDisc*100).toFixed(0)}% sensor bulk`);
+  lServSpan.textContent = lDescParts.length > 0 ? `→ ${formatCurrency(lBase * (1 - multiYear) * (1 - leaseSensorDisc))} (${lDescParts.join(' + ')})` : '';
+  // Lease lane
+  const lLaneSpan = document.getElementById('l-discount-lane');
+  const lLaneBase = costInputs.lLane;
+  const lLaneDescParts = [];
+  if (multiYear > 0) lLaneDescParts.push(`${(multiYear*100).toFixed(0)}% multi‑year`);
+  if (leaseLaneDisc > 0) lLaneDescParts.push(`${(leaseLaneDisc*100).toFixed(0)}% lane bulk`);
+  lLaneSpan.textContent = lLaneDescParts.length > 0 ? `→ ${formatCurrency(lLaneBase * (1 - multiYear) * (1 - leaseLaneDisc))} (${lLaneDescParts.join(' + ')})` : '';
+}
+
+// Calculate and update everything
+function recalc() {
+  const years = parseInt(document.getElementById('contract-years').value, 10);
+  const sensors = parseInt(document.getElementById('sensors').value, 10) || 0;
+  const lanes = parseInt(document.getElementById('lanes').value, 10) || 0;
+  const bases = parseInt(document.getElementById('bases').value, 10) || 0;
+  const warrantyYears = parseInt(document.getElementById('warranty-years').value, 10) || 0;
+  // Read cost inputs
+  const costInputs = {
+    pActivation: parseFloat(document.getElementById('p-cost-activation').value) || 0,
+    pService:    parseFloat(document.getElementById('p-cost-service').value) || 0,
+    pInstall:    parseFloat(document.getElementById('p-cost-install').value) || 0,
+    pLaneCounter:parseFloat(document.getElementById('p-cost-laneCounter').value) || 0,
+    pLane:       parseFloat(document.getElementById('p-cost-lane').value) || 0,
+    pBase:       parseFloat(document.getElementById('p-cost-base').value) || 0,
+    pWarranty:   parseFloat(document.getElementById('p-cost-warranty').value) || 0,
+    lService:    parseFloat(document.getElementById('l-cost-service').value) || 0,
+    lLane:       parseFloat(document.getElementById('l-cost-lane').value) || 0,
+  };
+  // Determine dynamic prices based on bulk tiers (does not override user input; only for savings)
+  const baseCost = costInputs.pBase;
+  const multiYearDiscount = getMultiYearDiscount(years);
+  // Compute subtotals
+  const sumOutputs = {
+    pActivation: document.getElementById('p-sum-activation'),
+    pService:    document.getElementById('p-sum-service'),
+    pInstall:    document.getElementById('p-sum-install'),
+    pLaneCounter:document.getElementById('p-sum-laneCounter'),
+    pLane:       document.getElementById('p-sum-lane'),
+    pBase:       document.getElementById('p-sum-base'),
+    pWarranty:   document.getElementById('p-sum-warranty'),
+    lService:    document.getElementById('l-sum-service'),
+    lLane:       document.getElementById('l-sum-lane'),
+  };
+  updateRowSums(sensors, lanes, bases, warrantyYears, costInputs, sumOutputs, baseCost, multiYearDiscount);
+  // Compute year totals
+  const pTotals = computePurchaseTotals(years, sensors, lanes, bases, warrantyYears, costInputs, baseCost, multiYearDiscount);
+  const lTotals = computeLeaseTotals(years, sensors, lanes, costInputs, multiYearDiscount);
+  renderYearBreakdown(document.getElementById('p-year-breakdown'), pTotals);
+  renderYearBreakdown(document.getElementById('l-year-breakdown'), lTotals);
+  // Compute waterfall
+  const waterfall = computeWaterfall(sensors, lanes, bases, warrantyYears, costInputs, baseCost);
+  const waterfallTotal = pTotals[0];
+  renderWaterfall(document.getElementById('p-waterfall'), waterfall, waterfallTotal);
+  // Compute savings amounts
+  const savings = [];
+  const hardwareDisc = getPurchaseHardwareDiscount(sensors);
+  if (hardwareDisc > 0) {
+    const baseline = 166 * sensors;
+    const currentPrice = getBulkActivationPrice(sensors) * sensors;
+    savings.push({ label: 'Purchase hardware bulk discount', amount: baseline - currentPrice });
+  }
+  if (multiYearDiscount > 0) {
+    const baseService = costInputs.pService * sensors + costInputs.pLane * lanes;
+    const discounted = baseService * (1 - multiYearDiscount);
+    savings.push({ label: 'Multi‑year SaaS discount', amount: baseService - discounted });
+  }
+  // Lease discounts: sensor and lane bulk
+  const sensorBulk = getLeaseSensorDiscount(sensors);
+  if (sensorBulk > 0) {
+    const baseline = costInputs.lService * sensors;
+    const discounted = baseline * (1 - sensorBulk);
+    savings.push({ label: 'Lease sensor bulk discount', amount: baseline - discounted });
+  }
+  const laneBulk = getLeaseLaneDiscount(lanes);
+  if (laneBulk > 0) {
+    const baseline = costInputs.lLane * lanes;
+    const discounted = baseline * (1 - laneBulk);
+    savings.push({ label: 'Lease lane bulk discount', amount: baseline - discounted });
+  }
+  renderSavings(document.getElementById('p-savings'), savings.filter(s => s.label.includes('Purchase')));
+  renderSavings(document.getElementById('l-savings'), savings.filter(s => s.label.startsWith('Multi') || s.label.startsWith('Lease')));
+  // Contract totals
+  const pContractTotal = pTotals.reduce((a,b) => a + b, 0);
+  const lContractTotal = lTotals.reduce((a,b) => a + b, 0);
+  document.getElementById('p-contract-total').textContent = formatCurrency(pContractTotal);
+  document.getElementById('l-contract-total').textContent = formatCurrency(lContractTotal);
+  // Update discount display next to unit prices
+  updateDiscountDisplays(sensors, lanes, years, costInputs);
+}
+
+// Toggle dark mode
+document.getElementById('dark-toggle').addEventListener('click', function() {
+  const dark = document.body.classList.toggle('dark');
+  this.setAttribute('aria-pressed', dark);
+});
+
+// Tab switching
+document.getElementById('tab-pricing').addEventListener('click', () => {
+  document.getElementById('pricing-section').style.display = '';
+  document.getElementById('discounts-section').style.display = 'none';
+  document.getElementById('tab-pricing').classList.add('active');
+  document.getElementById('tab-discounts').classList.remove('active');
+});
+document.getElementById('tab-discounts').addEventListener('click', () => {
+  document.getElementById('pricing-section').style.display = 'none';
+  document.getElementById('discounts-section').style.display = '';
+  document.getElementById('tab-discounts').classList.add('active');
+  document.getElementById('tab-pricing').classList.remove('active');
+});
+
+// Input listeners: recalc on change
+['contract-years','sensors','lanes','bases','warranty-years','p-cost-activation','p-cost-service','p-cost-install','p-cost-laneCounter','p-cost-lane','p-cost-base','p-cost-warranty','l-cost-service','l-cost-lane'].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('input', recalc);
+});
+
+// Initial render
+recalc();
+  </script>
+</body>
+</html>
