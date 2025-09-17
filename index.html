@@ -679,11 +679,12 @@ function computePurchaseTotals(years, sensors, lanes, bases, warrantyYears, cost
 function computeLeaseTotals(years, sensors, lanes, costs, discount) {
   const totals = [];
   const serviceMultiplier = 1 - discount;
+  const sensorBulk = getLeaseSensorDiscount(sensors);
+  const laneBulk   = getLeaseLaneDiscount(lanes);
+  const sensorUnit = costs.lService * serviceMultiplier * (1 - sensorBulk);
+  const laneUnit   = costs.lLane   * serviceMultiplier * (1 - laneBulk);
   for (let i = 0; i < years; i++) {
-    totals.push(
-      costs.lService * sensors * serviceMultiplier +
-      costs.lLane * lanes * serviceMultiplier
-    );
+    totals.push(sensorUnit * sensors + laneUnit * lanes);
   }
   return totals;
 }
@@ -699,9 +700,13 @@ function updateRowSums(sensors, lanes, bases, warrantyYears, costInputs, sumOutp
   sumOutputs.pLane.textContent       = formatCurrency(costInputs.pLane * lanes * serviceMultiplier);
   sumOutputs.pBase.textContent       = formatCurrency(baseCost * bases);
   sumOutputs.pWarranty.textContent   = formatCurrency(costInputs.pWarranty * sensors * warrantyYears);
-  // Lease rows
-  sumOutputs.lService.textContent    = formatCurrency(costInputs.lService * sensors * serviceMultiplier);
-  sumOutputs.lLane.textContent       = formatCurrency(costInputs.lLane * lanes * serviceMultiplier);
+  // Lease rows, match the rounded orange unit price
+  const leaseSensorDisc = getLeaseSensorDiscount(sensors);
+  const leaseLaneDisc   = getLeaseLaneDiscount(lanes);
+  const leaseSensorUnit = +(costInputs.lService * serviceMultiplier * (1 - leaseSensorDisc)).toFixed(2);
+  const leaseLaneUnit   = +(costInputs.lLane   * serviceMultiplier * (1 - leaseLaneDisc)).toFixed(2);
+  sumOutputs.lService.textContent    = formatCurrency(leaseSensorUnit * sensors);
+  sumOutputs.lLane.textContent       = formatCurrency(leaseLaneUnit * lanes);
 }
 
 // Compute and display discount description next to unit prices
